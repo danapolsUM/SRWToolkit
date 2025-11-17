@@ -200,12 +200,12 @@ def process_request(
     llm_model: str,
     custom_prompt_suffix: str,
 ) -> str:
-    # print("\n========== Prompt Sent to LLM ==========")
-    # print("Model:", llm_model)
-    # print("URL:", chat_url)
-    # print("Full Payload:\n", json.dumps(message_history, indent=2))
-    #print("Custom Prompt Suffix:", custom_prompt_suffix)
-    #print("========================================\n")
+    print("\n========== Prompt Sent to LLM ==========")
+    print("Model:", llm_model)
+    print("URL:", chat_url)
+    print("Full Payload:\n", json.dumps(message_history, indent=2))
+    print("Custom Prompt Suffix:", custom_prompt_suffix)
+    print("========================================\n")
 
     try:
         # Configure retry strategy

@@ -131,6 +131,26 @@ const ControlPanel: FC = () => {
     }
   };
 
+  const handleSendToAI = () => {
+    if (!communicationId) {
+      setPromptResponse("❌ Communication id not set");
+      return;
+    }
+    if (!userInput.trim()) {
+      setPromptResponse("❌ Please enter a message to send to the AI.");
+      return;
+    }
+    // dispatch websocket send to backend which will invoke LLM
+    // import action lazily to avoid circular deps
+    // @ts-ignore
+    import("store/actions/communicationActions").then((mod) => {
+      // @ts-ignore
+      dispatch(mod.sendTextToLLM(userInput));
+    });
+    setPromptResponse("✅ Sent message to AI");
+    setUserInput("");
+  };
+
   useEffect(() => {
     if (!config.llmModel && availableModels.length > 0) {
       dispatch(
@@ -309,6 +329,29 @@ const ControlPanel: FC = () => {
                   </select>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+        <div className="cpb-section">
+          <div className="cpb-header">Send Message to AI</div>
+          <div className="cpb-content space-y-2">
+            <textarea
+              className="w-full border p-2 rounded min-h-[80px] text-base"
+              rows={3}
+              placeholder="Type a message to send to the AI..."
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+            />
+            <div className="flex items-center space-x-2">
+              <button
+                className="bg-green-500 text-white px-4 py-2 rounded"
+                onClick={handleSendToAI}
+              >
+                Send to AI
+              </button>
+              {promptResponse && (
+                <div className="text-sm text-gray-700">{promptResponse}</div>
+              )}
             </div>
           </div>
         </div>

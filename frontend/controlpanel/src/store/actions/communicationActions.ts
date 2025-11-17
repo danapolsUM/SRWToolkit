@@ -140,6 +140,25 @@ const handleSocketOnMessage = (event: MessageEvent) => (dispatch: AppDispatch) =
       dispatch(setBotConnectedStatus(data.is_bot_connected ?? false));
       break;
 
+    case socketReceiveMsgTypes.USER_INPUT:
+      // When bot forwards user input, notify the operator so they can send it to the AI
+      if (data?.text) {
+        dispatch(
+          showSnackbar({
+            message: `User said: ${data.text}`,
+            type: SnackbarType.INFO,
+          }),
+        );
+      } else if (data?.audio) {
+        dispatch(
+          showSnackbar({
+            message: `User sent audio (forwarded to control panel)`,
+            type: SnackbarType.INFO,
+          }),
+        );
+      }
+      break;
+
     case socketReceiveMsgTypes.NEW_CONTROL_PANEL_DETECTED:
       dispatch(
         showSnackbar({
@@ -217,6 +236,30 @@ export const socketUpdateConfig = (config: SystemConfig) => {
       config: makeSocketConfig(config),
     },
   });
+  return doNothing();
+};
+
+export const sendTextToLLM = (text: string) => (dispatch: AppDispatch) => {
+  if (!text || !text.trim()) {
+    dispatch(
+      showSnackbar({
+        message: "Please provide text to send to the AI",
+        type: SnackbarType.ERROR,
+      }),
+    );
+    return;
+  }
+
+  handleSocketMessageSend({
+    type: socketSendMsgTypes.SEND_TEXT,
+    data: { text },
+  });
+  dispatch(
+    showSnackbar({
+      message: "Sent text to AI",
+      type: SnackbarType.INFO,
+    }),
+  );
   return doNothing();
 };
 

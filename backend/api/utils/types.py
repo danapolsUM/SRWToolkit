@@ -24,11 +24,15 @@ class SendControlPanelMessage(Enum):
     NEW_CONTROL_PANEL_DETECTED = "NEW_CONTROL_PANEL_DETECTED"
     IS_BOT_CONNECTED = "IS_BOT_CONNECTED"
     PING_STATE = "PING_STATE"
+    # forwarded user input from bot or controlpanel
+    USER_INPUT = "USER_INPUT"
 
 
 class ReceiveControlPanelMessage(Enum):
     UPDATE_CONFIG = "UPDATE_CONFIG"
     PING = "PING"
+    SEND_AUDIO = "SEND_AUDIO"
+    SEND_TEXT = "SEND_TEXT"
 
 
 class SkinType(str, Enum):
@@ -39,7 +43,7 @@ class SkinType(str, Enum):
 
 class LLMModel(str, Enum):
     gemma2_9b = "gemma2:9b"
-    llama3_2_latest = "llama3.2:latest"
+    llama3 = "llama3"
     nemotron_mini_latest = "nemotron-mini:latest"
     phi3_5_latest = "phi3.5:latest"
     qwen2_5_latest = "qwen2.5:latest"

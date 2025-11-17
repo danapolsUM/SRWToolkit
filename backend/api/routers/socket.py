@@ -136,6 +136,9 @@ async def communicate(
                 websocket,
                 communication.bot_client,
                 data,
+                s2t_client,
+                t2s_client,
+                cfg.llm_url,
             )
 
     except WebSocketDisconnect:
@@ -183,59 +186,23 @@ async def _handle_bot_messages(
 
     match message_type:
         case ReceiveBotMessage.SEND_AUDIO:
-            if not communication.processing_request:
-                communication.processing_request = True
-                result = await asyncio.get_running_loop().run_in_executor(
-                    None,
-                    process_user_audio_with_llm,
-                    db,
-                    communication,
-                    data["audio"],
-                    s2t_client,
-                    t2s_client,
-                    llm_url,
-                    _send_message,
-                )
-                communication.processing_request = False
-                
-                if result:  # Only send if we got a valid LLM response
-                    send_to_bot_type = SendBotMessage.AUDIO_RESPONSE
-                    send_to_bot = {
-                        "response": result["audio"],
-                        "content": result["text"],
-                        "user_query": result.get("user_query"),
-                        "fixed_prompt": result.get("fixed_prompt"),
-                    }
+            # Forward raw audio from bot to controlpanel for inspection/decision
+            if controlpanel:
+                send_to_cp_type = SendControlPanelMessage.USER_INPUT
+                send_to_cp = {"audio": data.get("audio")}
             else:
+                # If no controlpanel connected, return an error to bot
                 send_to_bot_type = SendGenericMessage.ERROR
-                send_to_bot = {"message": "Request already in progress!"}
+                send_to_bot = {"message": "No control panel connected to handle AI input."}
 
         case ReceiveBotMessage.SEND_TEXT:
-            if not communication.processing_request:
-                communication.processing_request = True
-                result = await asyncio.get_running_loop().run_in_executor(
-                    None,
-                    process_user_text_with_llm,
-                    db,
-                    communication,
-                    data["text"],
-                    t2s_client,
-                    llm_url,
-                    _send_message,
-                )
-                communication.processing_request = False
-                
-                if result:  # Only send if we got a valid LLM response
-                    send_to_bot_type = SendBotMessage.AUDIO_RESPONSE
-                    send_to_bot = {
-                        "response": result["audio"],
-                        "content": result["text"],
-                        "user_query": result.get("user_query"),
-                        "fixed_prompt": result.get("fixed_prompt"),
-                    }
+            # Forward raw text from bot to controlpanel for handling by controlpanel
+            if controlpanel:
+                send_to_cp_type = SendControlPanelMessage.USER_INPUT
+                send_to_cp = {"text": data.get("text")}
             else:
                 send_to_bot_type = SendGenericMessage.ERROR
-                send_to_bot = {"message": "Request already in progress!"}
+                send_to_bot = {"message": "No control panel connected to handle AI input."}
 
     if send_to_bot and send_to_bot_type:
         await _send_message(bot_client, send_to_bot_type, send_to_bot)
@@ -250,6 +217,9 @@ async def _handle_controlpanel_messages(
     controlpanel: WebSocket,
     bot_client: WebSocket,
     blob: Dict[str, Any],
+    s2t_client: speech_v1.SpeechClient,
+    t2s_client: texttospeech.TextToSpeechClient,
+    llm_url: str,
 ):
     try:
         message_type = ReceiveControlPanelMessage[blob["type"]]
@@ -282,6 +252,63 @@ async def _handle_controlpanel_messages(
         case ReceiveControlPanelMessage.PING:
             send_to_cp_type = SendControlPanelMessage.PING_STATE
             send_to_cp = {"is_bot_connected": communication.bot_client is not None}
+
+        case ReceiveControlPanelMessage.SEND_AUDIO:
+            # Control panel requested LLM processing for provided audio
+            if not communication.processing_request:
+                communication.processing_request = True
+                result = await asyncio.get_running_loop().run_in_executor(
+                    None,
+                    process_user_audio_with_llm,
+                    db,
+                    communication,
+                    data.get("audio"),
+                    s2t_client,
+                    t2s_client,
+                    llm_url,
+                    _send_message,
+                )
+                communication.processing_request = False
+
+                if result and bot_client:
+                    send_to_bot_type = SendBotMessage.AUDIO_RESPONSE
+                    send_to_bot = {
+                        "response": result.get("audio"),
+                        "content": result.get("text"),
+                        "user_query": result.get("user_query"),
+                        "fixed_prompt": result.get("fixed_prompt"),
+                    }
+            else:
+                send_to_cp_type = SendGenericMessage.ERROR
+                send_to_cp = {"message": "Request already in progress!"}
+
+        case ReceiveControlPanelMessage.SEND_TEXT:
+            # Control panel requested LLM processing for provided text
+            if not communication.processing_request:
+                communication.processing_request = True
+                result = await asyncio.get_running_loop().run_in_executor(
+                    None,
+                    process_user_text_with_llm,
+                    db,
+                    communication,
+                    data.get("text"),
+                    t2s_client,
+                    llm_url,
+                    _send_message,
+                )
+                communication.processing_request = False
+
+                if result and bot_client:
+                    send_to_bot_type = SendBotMessage.AUDIO_RESPONSE
+                    send_to_bot = {
+                        "response": result.get("audio"),
+                        "content": result.get("text"),
+                        "user_query": result.get("user_query"),
+                        "fixed_prompt": result.get("fixed_prompt"),
+                    }
+            else:
+                send_to_cp_type = SendGenericMessage.ERROR
+                send_to_cp = {"message": "Request already in progress!"}
 
     if bot_client and send_to_bot and send_to_bot_type:
         await _send_message(bot_client, send_to_bot_type, send_to_bot)

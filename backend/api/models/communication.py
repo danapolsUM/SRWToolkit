@@ -18,7 +18,7 @@ class CommunicationConfig(pyd.BaseModel):
     audio_enabled: bool = True
     text_enabled: bool = True
     proactive_mode_enabled: bool = False
-    llm_model: LLMModel = LLMModel.llama3_2_latest
+    llm_model: LLMModel = LLMModel.llama3
     voice_language_code: VoiceLanguageCode = VoiceLanguageCode.en_US
     voice_gender: VoiceGender = VoiceGender.MALE
     custom_prompt_suffix: Optional[str] = None
